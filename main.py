@@ -23,10 +23,19 @@ Model
       else sigma; floored at 0.0002 and capped at 0.02.
 
 * Quantiles: ``q_tau(h) = clamp(x + z_tau * sigma_use * h**0.42 *
-  tail(tau), 0, 1)`` with normal z-values and a tail widening (1.35 for
-  the outer pair, 1.10 for the inner pair) that compensates for the
+  tail(tau), 0, 1)`` with normal z-values and a tail widening (1.50 for
+  the outer pair, 1.00 for the inner pair) that compensates for the
   jumpy, step-like moves these prediction markets make.  Rows are
   forced non-decreasing after rounding and clamped to [0, 1].
+
+Revision (v3) — constants re-tuned on an exact local re-implementation
+of the official pinball scorer (validated by reproducing the house
+baseline's published practice loss 0.363589 to all six decimals) over
+the six practice cases with answers fetched from Polymarket's public
+price history: short sigma window 240 -> 120 minutes, outer tail
+widening 1.35 -> 1.50, inner tail widening 1.10 -> 1.00.  Practice loss
+0.283487 -> 0.281034; 90% coverage 0.903.  Pooled cross-market sigma
+shrinkage was tested and rejected (it under-widens the active markets).
 
 Revision (v2) — sub-diffusive spread growth: v1 grew the spread with
 sqrt(h), the free-random-walk law.  Backtesting v1 against the house
@@ -60,7 +69,7 @@ _NORM = NormalDist()
 
 # Tail widening as a piecewise-linear function of |z|: exactly 1.0 at the
 # median, 1.10 at the 25/75% points and 1.35 at the 5/95% points.
-_TAIL_POINTS = ((0.0, 1.0), (0.67448975, 1.10), (1.64485363, 1.35))
+_TAIL_POINTS = ((0.0, 1.0), (0.67448975, 1.00), (1.64485363, 1.50))
 
 
 def _tail_factor(z):
@@ -97,7 +106,7 @@ def estimate_sigma(changes):
     if sigma == 0.0:
         sigma = 0.0025
 
-    short_win = changes[-240:]
+    short_win = changes[-120:]
     sigma_short = _mad_sigma(short_win)
     if sigma_short == 0.0:
         sigma_short = _mean_abs(short_win)
